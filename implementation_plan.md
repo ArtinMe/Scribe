@@ -18,10 +18,13 @@ Reference: see `PRD.md` for full scope and success criteria. This file tracks bu
 - **Checkpoint**: draw one letter, see it smoothed on screen ✅
 
 ## Phase 3 — Real font export for one letter
-- [ ] Integrate `opentype.js` to map the smoothed curve into a glyph outline
-- [ ] Compile a font file containing just this one glyph
-- [ ] Offer it as a download
+- [x] Integrate `opentype.js` to map the smoothed curve into a glyph outline
+- [x] Compile a font file containing just this one glyph
+- [x] Offer it as a download
 - [ ] Manually install the font and confirm the one glyph renders correctly when typed
+  - Format note: export is OpenType/CFF (`.otf`), not TrueType `glyf`, because
+    opentype.js only writes CFF outlines. Installs identically on
+    macOS/Windows. PRD updated from `.ttf` to `.otf` to match.
 - **Checkpoint**: one real, installable glyph — this is the core pipeline proven end to end
 
 ## Phase 4 — Redo/review flow + uppercase A–Z

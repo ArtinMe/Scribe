@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type BezierCurve, countSegments, fitStroke } from "../lib/fitStroke";
+import {
+  buildSingleGlyphFont,
+  downloadFont,
+  strokesToGlyphOutlines,
+} from "../lib/buildFont";
+import { expandStroke, flattenCurves } from "../lib/strokeToOutline";
 
 export type Point = {
   x: number;
@@ -21,6 +27,7 @@ export type Stroke = {
 const RAW_COLOR = "#c9ccd1";
 const POINT_COLOR = "#e5484d";
 const FIT_COLOR = "#0b6bcb";
+const OUTLINE_COLOR = "#18181b";
 
 export default function DrawingCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,7 +39,11 @@ export default function DrawingCanvas() {
 
   const [showRaw, setShowRaw] = useState(true);
   const [showFit, setShowFit] = useState(true);
+  const [showOutline, setShowOutline] = useState(false);
   const [maxError, setMaxError] = useState(4);
+  const [penWidth, setPenWidth] = useState(18);
+  const [character, setCharacter] = useState("A");
+  const [exportError, setExportError] = useState<string | null>(null);
   const [stats, setStats] = useState({ strokes: 0, points: 0, segments: 0 });
   const [lastPoint, setLastPoint] = useState<Point | null>(null);
 
@@ -99,8 +110,22 @@ export default function DrawingCanvas() {
       }
 
       if (showFit && stroke.curves) drawCurves(ctx, stroke.curves);
+
+      // The filled outline is what actually becomes the glyph, so previewing it
+      // catches expansion problems here rather than in an installed font.
+      if (showOutline && stroke.curves && stroke.curves.length > 0) {
+        const outline = expandStroke(flattenCurves(stroke.curves), penWidth);
+        if (outline.length >= 3) {
+          ctx.fillStyle = OUTLINE_COLOR;
+          ctx.beginPath();
+          ctx.moveTo(outline[0][0], outline[0][1]);
+          for (const [x, y] of outline.slice(1)) ctx.lineTo(x, y);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
     }
-  }, [showRaw, showFit]);
+  }, [showRaw, showFit, showOutline, penWidth]);
 
   // Size the backing store to the device pixel ratio so lines stay crisp.
   useEffect(() => {
@@ -217,6 +242,26 @@ export default function DrawingCanvas() {
     draw();
   };
 
+  const exportFont = () => {
+    setExportError(null);
+    const char = character.trim();
+    if (char.length === 0) {
+      setExportError("pick a character");
+      return;
+    }
+    try {
+      const outlines = strokesToGlyphOutlines(strokesRef.current, penWidth);
+      if (!outlines) {
+        setExportError("draw something first");
+        return;
+      }
+      const font = buildSingleGlyphFont(char, outlines);
+      downloadFont(font, `scribe-${char.codePointAt(0)}.otf`);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "export failed");
+    }
+  };
+
   const logStrokes = () => {
     console.log(JSON.parse(JSON.stringify(strokesRef.current)));
   };
@@ -269,7 +314,53 @@ export default function DrawingCanvas() {
           />
         </label>
 
+        <label
+          className={`${chip} pointer-events-auto flex items-center gap-2`}
+          title="Pen thickness used to expand the centerline into a filled outline"
+        >
+          pen {penWidth}
+          <input
+            type="range"
+            min={2}
+            max={60}
+            step={1}
+            value={penWidth}
+            onChange={(e) => setPenWidth(Number(e.target.value))}
+            className="w-24"
+          />
+        </label>
+
+        <label className={`${chip} pointer-events-auto flex items-center gap-2`}>
+          char
+          <input
+            type="text"
+            value={character}
+            onChange={(e) => setCharacter(e.target.value.slice(-1))}
+            className="w-8 rounded border border-zinc-300 px-1 text-center"
+          />
+        </label>
+
+        <button
+          onClick={exportFont}
+          className={`${button} font-semibold text-zinc-900`}
+        >
+          export .otf
+        </button>
+
+        {exportError && (
+          <span className={`${chip} pointer-events-auto text-red-600`}>
+            {exportError}
+          </span>
+        )}
+
         <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => setShowOutline((v) => !v)}
+            className={button}
+            style={{ color: showOutline ? OUTLINE_COLOR : undefined }}
+          >
+            outline {showOutline ? "on" : "off"}
+          </button>
           <button
             onClick={() => setShowRaw((v) => !v)}
             className={button}
