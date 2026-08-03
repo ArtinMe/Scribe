@@ -47,19 +47,42 @@ function unitNormals(pts: Vec2[]): Vec2[] {
   });
 }
 
-function capArc(center: Vec2, from: Vec2, to: Vec2, steps = 8): Vec2[] {
-  const a0 = Math.atan2(from[1] - center[1], from[0] - center[0]);
-  let a1 = Math.atan2(to[1] - center[1], to[0] - center[0]);
-  // Always sweep the short way so the cap stays a semicircle, not a loop.
-  while (a1 - a0 > Math.PI) a1 -= 2 * Math.PI;
-  while (a0 - a1 > Math.PI) a1 += 2 * Math.PI;
-  const r = Math.hypot(from[0] - center[0], from[1] - center[1]);
+/**
+ * Half-circle from `from` around `center`, bulging towards `outward`.
+ *
+ * The two cap endpoints sit exactly opposite each other across the centerline,
+ * so the angle between them is exactly ±π and "sweep the shorter way" is
+ * undefined — the direction then falls out of atan2's branch cut, which sent
+ * the start cap arcing forward *into* the stroke instead of behind it. That
+ * folded the contour back on itself and left an unfilled lens at the start.
+ * Direction is therefore taken from the outward tangent, and since the sweep is
+ * a known half-turn it is rotated by exactly π rather than interpolated.
+ */
+function capArc(center: Vec2, from: Vec2, outward: Vec2, steps = 8): Vec2[] {
+  const vx = from[0] - center[0];
+  const vy = from[1] - center[1];
+  // Cross product picks the turn direction that carries `from` towards
+  // `outward`, i.e. around the outside of the stroke end.
+  const dir = vx * outward[1] - vy * outward[0] >= 0 ? 1 : -1;
   const arc: Vec2[] = [];
   for (let i = 1; i < steps; i++) {
-    const a = a0 + ((a1 - a0) * i) / steps;
-    arc.push([center[0] + Math.cos(a) * r, center[1] + Math.sin(a) * r]);
+    const a = (dir * Math.PI * i) / steps;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    arc.push([
+      center[0] + vx * cos - vy * sin,
+      center[1] + vx * sin + vy * cos,
+    ]);
   }
   return arc;
+}
+
+/** Unit vector pointing from `b` towards `a`. */
+function unit(a: Vec2, b: Vec2): Vec2 {
+  const dx = a[0] - b[0];
+  const dy = a[1] - b[1];
+  const len = Math.hypot(dx, dy) || 1;
+  return [dx / len, dy / len];
 }
 
 /** Twice the signed area; positive is counter-clockwise in a y-up space. */
@@ -111,11 +134,15 @@ export function expandStroke(centerline: Vec2[], width: number): Vec2[] {
   ]);
 
   const last = pts.length - 1;
+  // Each cap bulges away from the stroke: forward past the final point, and
+  // backward behind the first.
+  const forward = unit(pts[last], pts[last - 1]);
+  const backward = unit(pts[0], pts[1]);
   return [
     ...left,
-    ...capArc(pts[last], left[last], right[last]),
+    ...capArc(pts[last], left[last], forward),
     ...right.slice().reverse(),
-    ...capArc(pts[0], right[0], left[0]),
+    ...capArc(pts[0], right[0], backward),
   ];
 }
 
