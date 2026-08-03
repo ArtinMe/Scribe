@@ -99,6 +99,13 @@ export function signedArea(poly: Vec2[]): number {
 /**
  * Expand a centerline polyline into a closed outline of the given width, with
  * round caps at both ends — the shape a round pen nib would leave.
+ *
+ * `width` is deliberately a single scalar, not per-point: stroke weight is
+ * uniform along the whole path and identical for every input device. Pointer
+ * pressure (which an Apple Pencil reports on every sample) is captured with the
+ * raw points but must never modulate width — a font's letterforms should not
+ * depend on how hard the pen was pressed, and varying width per segment is
+ * exactly what would make offset joins disagree and open seams.
  */
 export function expandStroke(centerline: Vec2[], width: number): Vec2[] {
   const half = width / 2;
