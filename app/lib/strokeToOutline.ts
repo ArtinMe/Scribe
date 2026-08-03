@@ -33,18 +33,44 @@ export function flattenCurves(curves: BezierCurve[], stepsPerCurve = 16): Vec2[]
   return out;
 }
 
-function unitNormals(pts: Vec2[]): Vec2[] {
-  const n = pts.length;
-  return pts.map((_, i) => {
-    // Central difference gives a smoother normal at joins than using one
-    // adjacent segment, which would kink the outline at every vertex.
-    const prev = pts[Math.max(0, i - 1)];
-    const next = pts[Math.min(n - 1, i + 1)];
-    const tx = next[0] - prev[0];
-    const ty = next[1] - prev[1];
-    const len = Math.hypot(tx, ty) || 1;
-    return [-ty / len, tx / len] as Vec2;
-  });
+/** Unit normal to the left of travel, one per segment rather than per point. */
+function segmentNormals(pts: Vec2[]): Vec2[] {
+  const out: Vec2[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const dx = pts[i + 1][0] - pts[i][0];
+    const dy = pts[i + 1][1] - pts[i][1];
+    const len = Math.hypot(dx, dy) || 1;
+    out.push([-dy / len, dx / len]);
+  }
+  return out;
+}
+
+/**
+ * Round join: arc around a shared vertex from one segment's offset direction to
+ * the next's, excluding both endpoints (the segments already supply those).
+ *
+ * Where the path turns, the two segments' offset edges no longer meet — on the
+ * outside of the turn they leave a wedge of missing material. Averaging the two
+ * normals into one offset point, as this used to do, closes that wedge only for
+ * gentle turns: the true outer offset needs half/cos(θ/2), so a flat half falls
+ * progressively shorter as the turn sharpens, which is why gaps appeared at
+ * tight bends and not on smooth curves.
+ *
+ * A gentle turn yields no interior points at all, so smooth paths cost nothing.
+ */
+function joinArc(center: Vec2, from: Vec2, to: Vec2, radius: number): Vec2[] {
+  const a0 = Math.atan2(from[1], from[0]);
+  let delta = Math.atan2(to[1], to[0]) - a0;
+  // Take the short way round; a join turn is always less than a half-turn.
+  while (delta > Math.PI) delta -= 2 * Math.PI;
+  while (delta < -Math.PI) delta += 2 * Math.PI;
+  const steps = Math.max(1, Math.ceil(Math.abs(delta) / (Math.PI / 12)));
+  const arc: Vec2[] = [];
+  for (let i = 1; i < steps; i++) {
+    const a = a0 + (delta * i) / steps;
+    arc.push([center[0] + Math.cos(a) * radius, center[1] + Math.sin(a) * radius]);
+  }
+  return arc;
 }
 
 /**
@@ -130,15 +156,34 @@ export function expandStroke(centerline: Vec2[], width: number): Vec2[] {
     return circle;
   }
 
-  const normals = unitNormals(pts);
-  const left = pts.map((p, i): Vec2 => [
-    p[0] + normals[i][0] * half,
-    p[1] + normals[i][1] * half,
-  ]);
-  const right = pts.map((p, i): Vec2 => [
-    p[0] - normals[i][0] * half,
-    p[1] - normals[i][1] * half,
-  ]);
+  // Offset each segment by its own normal and bridge the vertices with round
+  // joins, rather than offsetting each point by one averaged normal. Both sides
+  // get the join: on the outside it fills the wedge the turn opens up, and on
+  // the inside it laps over itself, which the non-zero winding rule unions.
+  const normals = segmentNormals(pts);
+  const left: Vec2[] = [];
+  const right: Vec2[] = [];
+  for (let i = 0; i < normals.length; i++) {
+    const [nx, ny] = normals[i];
+    left.push([pts[i][0] + nx * half, pts[i][1] + ny * half]);
+    left.push([pts[i + 1][0] + nx * half, pts[i + 1][1] + ny * half]);
+    right.push([pts[i][0] - nx * half, pts[i][1] - ny * half]);
+    right.push([pts[i + 1][0] - nx * half, pts[i + 1][1] - ny * half]);
+
+    const next = normals[i + 1];
+    if (next) {
+      const vertex = pts[i + 1];
+      left.push(...joinArc(vertex, normals[i], next, half));
+      right.push(
+        ...joinArc(
+          vertex,
+          [-normals[i][0], -normals[i][1]],
+          [-next[0], -next[1]],
+          half
+        )
+      );
+    }
+  }
 
   const last = pts.length - 1;
   // Each cap bulges away from the stroke: forward past the final point, and
@@ -147,7 +192,9 @@ export function expandStroke(centerline: Vec2[], width: number): Vec2[] {
   const backward = unit(pts[0], pts[1]);
   return [
     ...left,
-    ...capArc(pts[last], left[last], forward),
+    // The sides now carry join points too, so the caps hinge on the ends of the
+    // offset arrays rather than on any point index.
+    ...capArc(pts[last], left[left.length - 1], forward),
     ...right.slice().reverse(),
     ...capArc(pts[0], right[0], backward),
   ];
