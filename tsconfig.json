@@ -11,6 +11,9 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // tests/ run under node's type stripping, which needs explicit .ts imports.
+    // Safe here because noEmit is set — nothing is compiled through tsc.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [

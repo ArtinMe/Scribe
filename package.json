@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:outline": "node --experimental-strip-types tests/outline.mts"
   },
   "dependencies": {
     "fit-curve": "^0.2.0",
