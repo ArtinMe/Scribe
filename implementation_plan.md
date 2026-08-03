@@ -28,11 +28,19 @@ Reference: see `PRD.md` for full scope and success criteria. This file tracks bu
 - **Checkpoint**: one real, installable glyph — this is the core pipeline proven end to end
 
 ## Phase 4 — Redo/review flow + uppercase A–Z
-- [ ] Build redo/clear-current-letter UI (test against the single glyph first)
-- [ ] Build the sequential drawing UI that cycles through characters
-- [ ] Run all 26 uppercase letters through the pipeline
-- [ ] Compile and test an uppercase-only font end to end
+- [x] Build redo/clear-current-letter UI (test against the single glyph first)
+- [x] Build the sequential drawing UI that cycles through characters
+- [x] Run all 26 uppercase letters through the pipeline
+  - Verified with synthetic strokes for all 26: one shared baseline and scale,
+    relative letter heights preserved, 26 glyphs in the compiled font.
+- [x] Compile and test an uppercase-only font end to end
 - **Checkpoint (fallback point)**: fully working, installable uppercase-only font — if time runs short later, this is already a complete, demoable v1
+  - Pipeline is proven; still to do by hand: draw the real 26 letters and
+    confirm the installed font renders as your own handwriting.
+- Metrics note: glyphs are measured against on-canvas baseline/cap-height
+  guides, not each glyph's own bounding box, so letters share a baseline and
+  scale. Ink overshoots the guides by the pen radius (round caps), uniformly
+  for every letter.
 
 ## Phase 5 — Lowercase a–z
 - [ ] Run all 26 lowercase letters through the pipeline

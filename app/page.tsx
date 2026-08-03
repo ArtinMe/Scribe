@@ -1,5 +1,5 @@
-import DrawingCanvas from "./components/DrawingCanvas";
+import GlyphStudio from "./components/GlyphStudio";
 
 export default function Home() {
-  return <DrawingCanvas />;
+  return <GlyphStudio />;
 }
