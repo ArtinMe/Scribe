@@ -58,10 +58,20 @@ Reference: see `PRD.md` for full scope and success criteria. This file tracks bu
   target different vertical zones.
 
 ## Phase 6 — Digits, punctuation, kerning
-- [ ] Run digits 0–9 through the pipeline
-- [ ] Run punctuation set through the pipeline
-- [ ] Add basic kerning/spacing pass
-- [ ] Compile and test the full character set as one font
+- [x] Run digits 0–9 through the pipeline
+- [x] Run punctuation set through the pipeline
+- [x] Add basic kerning/spacing pass
+  - Per-glyph **optical side bearings**, not pair kerning: opentype.js's writer
+    emits neither a `kern` nor a `GPOS` table (verified by round-tripping a
+    font with `kerningPairs` set — the table is silently dropped), so pair
+    adjustment cannot be exported. Bearings come from profiling how far the
+    ink recedes from each edge, so an open shape is spaced closer than a
+    closed one. Word space tracks the median advance rather than a fixed em
+    fraction.
+- [x] Compile and test the full character set as one font
+  - 70 glyphs. Advances track drawn width (narrow 182 / normal 225 / wide 281
+    units); punctuation lands in its intended zone — `.` and `,` just above
+    baseline, `:` to x-height, quotes near cap height, `-` mid-way.
 
 ## Phase 7 — Final polish, deploy, document
 - [ ] Final full-font compile and install test

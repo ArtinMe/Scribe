@@ -5,6 +5,7 @@ import DrawingCanvas, { type Stroke } from "./DrawingCanvas";
 import {
   CHARACTER_SETS,
   TRICKY,
+  verticalHint,
   type CharacterSetId,
 } from "../lib/characterSet";
 import { fitStroke } from "../lib/fitStroke";
@@ -41,14 +42,10 @@ export default function GlyphStudio() {
     () => characters.filter((c) => (glyphs[c]?.length ?? 0) > 0).length,
     [glyphs, characters]
   );
-  // Which guide this character should reach, so the prompt is unambiguous.
-  const targetGuide = /[a-z]/.test(character)
-    ? "bcdfhkl".includes(character)
-      ? "ascender"
-      : "gjpqy".includes(character)
-        ? "x-height, tail below baseline"
-        : "x-height"
-    : "cap height";
+  // Which guide this character should reach, so the prompt is unambiguous —
+  // it matters most for punctuation, where nothing else says a period belongs
+  // on the baseline and a quote up near cap height.
+  const targetGuide = verticalHint(character);
 
   const setStrokesFor = useCallback(
     (char: string, strokes: Stroke[]) => {

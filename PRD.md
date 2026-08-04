@@ -36,7 +36,7 @@ A user draws the alphabet, digits, and basic punctuation on screen, clicks "Gene
 1. **Capture** — HTML5 Canvas + Pointer Events record raw (x, y) stroke points per character.
 2. **Smooth** — Raw points are fitted to smooth Bézier curves via `fit-curve` (implementing Schneider's curve-fitting algorithm).
 3. **Assemble** — Smoothed curves for each glyph are mapped into a font's glyph outline format.
-4. **Export** — `opentype.js` compiles all glyphs into a single `.otf` font file, including basic spacing/kerning metadata. OpenType/CFF rather than TrueType `glyf`: opentype.js only writes CFF outlines, and a CFF font installs identically on macOS/Windows.
+4. **Export** — `opentype.js` compiles all glyphs into a single `.otf` font file, including per-glyph spacing metadata. OpenType/CFF rather than TrueType `glyf`: opentype.js only writes CFF outlines, and a CFF font installs identically on macOS/Windows. Spacing is per-glyph (optical side bearings), not pair kerning — opentype.js's writer emits neither a `kern` nor a `GPOS` table, so pair adjustments cannot be exported at all.
 5. **Deliver** — Font file is offered as a browser download.
 
 ## Stack
@@ -64,5 +64,5 @@ A user draws the alphabet, digits, and basic punctuation on screen, clicks "Gene
 
 ## Risks / Known Unknowns
 - Curve-fitting quality may vary significantly by letter shape — lowercase cursive-adjacent letters (g, y, s) are the highest-risk cases.
-- Kerning/spacing is inherently approximate without manual per-pair tuning; a simple uniform-width fallback is acceptable if time runs short.
+- Kerning/spacing is inherently approximate without manual per-pair tuning; a simple uniform-width fallback is acceptable if time runs short. **Resolved:** pair kerning is not possible at all with opentype.js (its writer emits no `kern`/`GPOS` table), so spacing is done with per-glyph optical side bearings instead. Real pair kerning would need a different export library.
 - If time runs short: uppercase-only is the fallback demoable version (see checkpoint after core alphabet in build plan), with lowercase/digits/punctuation noted as "next steps" in the README rather than cut silently.

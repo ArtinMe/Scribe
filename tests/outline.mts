@@ -17,6 +17,7 @@
  */
 import { fitStroke } from "../app/lib/fitStroke.ts";
 import { expandStroke, flattenCurves, toClockwise, signedArea } from "../app/lib/strokeToOutline.ts";
+import { opticalSpacing } from "../app/lib/spacing.ts";
 
 type V = [number, number];
 
@@ -209,6 +210,44 @@ console.log("\ndegenerate strokes produce sane geometry");
   const held: V[] = Array.from({ length: 20 }, () => [50, 50] as V);
   check("stroke held still -> circle, not NaN", expandStroke(held, 18).every(([x, y]) => Number.isFinite(x) && Number.isFinite(y)));
   check("fit of a single point -> no curves", fitStroke([[5, 5]], 4).length === 0);
+}
+
+// ---------------------------------------------------------------- spacing
+console.log("\noptical spacing tightens open shapes, not closed ones");
+{
+  const T = 100;
+  const rect = (x0: number, y0: number, x1: number, y1: number): V[] => [
+    [x0, y0], [x1, y0], [x1, y1], [x0, y1],
+  ];
+  const H = [rect(0, 0, 80, 700), rect(320, 0, 400, 700), rect(80, 300, 320, 380)];
+  const A = [[[0, 0], [200, 700], [400, 0]] as V[]];
+  const T_ = [rect(0, 620, 400, 700), rect(160, 0, 240, 620)];
+  const L = [rect(0, 0, 80, 700), rect(0, 0, 320, 80)];
+  const dot = [rect(0, 0, 90, 90)];
+
+  const sH = opticalSpacing(H, T);
+  const sA = opticalSpacing(A, T);
+  const sT = opticalSpacing(T_, T);
+  const sL = opticalSpacing(L, T);
+  const sDot = opticalSpacing(dot, T);
+
+  check("closed 'H' keeps ~full bearings", sH.leftSideBearing > T * 0.85 && sH.rightSideBearing > T * 0.85,
+    `L=${sH.leftSideBearing} R=${sH.rightSideBearing}`);
+  check("open 'A' is tightened", sA.leftSideBearing < T * 0.7 && sA.rightSideBearing < T * 0.7,
+    `L=${sA.leftSideBearing} R=${sA.rightSideBearing}`);
+  check("open 'T' is tightened both sides", sT.leftSideBearing < T * 0.6 && sT.rightSideBearing < T * 0.6,
+    `L=${sT.leftSideBearing} R=${sT.rightSideBearing}`);
+  // The asymmetric case is the real proof: a full-height stem on the left, only
+  // a foot on the right, so the two sides must not come out equal.
+  check("'L' keeps left bearing but tightens right", sL.leftSideBearing > T * 0.8 && sL.rightSideBearing < T * 0.6,
+    `L=${sL.leftSideBearing} R=${sL.rightSideBearing}`);
+  check("a lone dot is not tightened", sDot.leftSideBearing >= T * 0.95 && sDot.rightSideBearing >= T * 0.95,
+    `L=${sDot.leftSideBearing} R=${sDot.rightSideBearing}`);
+  check("bearings never go below the collision floor",
+    [sH, sA, sT, sL, sDot].every((s) => s.leftSideBearing >= T * 0.34 && s.rightSideBearing >= T * 0.34));
+  check("advance = ink width + both bearings",
+    sH.advanceWidth === Math.round(400 + sH.leftSideBearing + sH.rightSideBearing));
+  check("empty glyph does not crash", opticalSpacing([], T).advanceWidth === T * 2);
 }
 
 console.log(failures === 0 ? "\nAll outline geometry tests passed.\n" : `\n${failures} test(s) failed.\n`);

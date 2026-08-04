@@ -16,6 +16,7 @@ import {
   toClockwise,
   type Vec2,
 } from "./strokeToOutline";
+import { opticalSpacing } from "./spacing";
 
 export { UNITS_PER_EM, ASCENDER, DESCENDER, CAP_HEIGHT };
 
@@ -68,20 +69,28 @@ export function strokesToGlyphOutlines(
   }
 
   const scale = guideScale(guides);
-  const contours = canvasContours.map((contour) =>
+  // Place ink at x=0 first; the left bearing is decided afterwards, once the
+  // glyph's edge profile is known.
+  const placed = canvasContours.map((contour) =>
     toClockwise(
       contour.map(([x, y]): Vec2 => [
-        (x - minX) * scale + SIDE_BEARING,
+        (x - minX) * scale,
         // Canvas y grows downward, font y upward, measured from the baseline.
         (guides.baselineY - y) * scale,
       ])
     )
   );
 
-  return {
-    contours,
-    advanceWidth: Math.round((maxX - minX) * scale + SIDE_BEARING * 2),
-  };
+  // Heavier strokes need proportionally more air, or a thick pen reads as
+  // cramped at the same bearing that suits a thin one.
+  const target = Math.max(SIDE_BEARING, penWidth * scale * 0.9);
+  const spacing = opticalSpacing(placed, target);
+
+  const contours = placed.map((contour) =>
+    contour.map(([x, y]): Vec2 => [x + spacing.leftSideBearing, y])
+  );
+
+  return { contours, advanceWidth: spacing.advanceWidth };
 }
 
 function contoursToPath(contours: Vec2[][]): Path {
@@ -138,10 +147,18 @@ export function buildFont(
   });
 
   // A space keeps the font usable for typing words rather than bare letters.
+  // Its width tracks the letters actually drawn: a fixed fraction of the em
+  // reads as a gap in narrow handwriting and as a hyphen-space in wide.
+  const advances = glyphs
+    .map((g) => g.outlines.advanceWidth)
+    .sort((a, b) => a - b);
+  const medianAdvance = advances.length
+    ? advances[Math.floor(advances.length / 2)]
+    : UNITS_PER_EM * 0.5;
   const space = new Glyph({
     name: "space",
     unicode: 32,
-    advanceWidth: Math.round(UNITS_PER_EM * 0.3),
+    advanceWidth: Math.round(Math.max(UNITS_PER_EM * 0.18, medianAdvance * 0.55)),
     path: new Path(),
   });
 
