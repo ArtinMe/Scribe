@@ -4,6 +4,8 @@ export const ASCENDER = 800;
 export const DESCENDER = -200;
 /** Where a capital letter's top sits, in font units above the baseline. */
 export const CAP_HEIGHT = 700;
+/** Where the body of a lowercase letter tops out — an 'x', not an 'h'. */
+export const X_HEIGHT = 500;
 /** Blank space left either side of a glyph's inked area. */
 export const SIDE_BEARING = 60;
 
@@ -17,6 +19,7 @@ export const SIDE_BEARING = 60;
  */
 export type Guides = {
   capY: number;
+  xHeightY: number;
   baselineY: number;
   descenderY: number;
   left: number;
@@ -28,11 +31,15 @@ export function computeGuides(width: number, height: number): Guides {
   const centre = height / 2;
   const baselineY = centre + capToBaseline / 2;
   const capY = centre - capToBaseline / 2;
-  // Keep the descender guide proportional to the real font metrics.
-  const descenderY = baselineY + (capToBaseline * -DESCENDER) / CAP_HEIGHT;
+  // Both extra guides are derived from the same px-per-font-unit ratio as the
+  // cap line, so drawing to a guide lands a glyph on the matching font metric.
+  const perUnit = capToBaseline / CAP_HEIGHT;
+  const xHeightY = baselineY - X_HEIGHT * perUnit;
+  const descenderY = baselineY - DESCENDER * perUnit;
   const margin = Math.min(width * 0.2, 260);
   return {
     capY,
+    xHeightY,
     baselineY,
     descenderY,
     left: margin,

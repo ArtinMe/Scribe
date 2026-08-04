@@ -2,7 +2,11 @@
 
 import { useCallback, useMemo, useState } from "react";
 import DrawingCanvas, { type Stroke } from "./DrawingCanvas";
-import { UPPERCASE } from "../lib/characterSet";
+import {
+  CHARACTER_SETS,
+  TRICKY,
+  type CharacterSetId,
+} from "../lib/characterSet";
 import { fitStroke } from "../lib/fitStroke";
 import type { Guides } from "../lib/fontMetrics";
 import {
@@ -15,10 +19,9 @@ import {
 /** Strokes drawn for each character, keyed by the character itself. */
 type GlyphMap = Record<string, Stroke[]>;
 
-const CHARACTERS = UPPERCASE;
-
 export default function GlyphStudio() {
   const [glyphs, setGlyphs] = useState<GlyphMap>({});
+  const [setId, setSetId] = useState<CharacterSetId>("uppercase");
   const [index, setIndex] = useState(0);
   const [guides, setGuides] = useState<Guides | null>(null);
   const [maxError, setMaxError] = useState(4);
@@ -28,15 +31,24 @@ export default function GlyphStudio() {
   const [showInk, setShowInk] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
 
-  const character = CHARACTERS[index];
+  const characters = CHARACTER_SETS[setId].characters;
+  const character = characters[Math.min(index, characters.length - 1)];
   const currentStrokes = useMemo(
     () => glyphs[character] ?? [],
     [glyphs, character]
   );
   const drawnCount = useMemo(
-    () => CHARACTERS.filter((c) => (glyphs[c]?.length ?? 0) > 0).length,
-    [glyphs]
+    () => characters.filter((c) => (glyphs[c]?.length ?? 0) > 0).length,
+    [glyphs, characters]
   );
+  // Which guide this character should reach, so the prompt is unambiguous.
+  const targetGuide = /[a-z]/.test(character)
+    ? "bcdfhkl".includes(character)
+      ? "ascender"
+      : "gjpqy".includes(character)
+        ? "x-height, tail below baseline"
+        : "x-height"
+    : "cap height";
 
   const setStrokesFor = useCallback(
     (char: string, strokes: Stroke[]) => {
@@ -56,7 +68,7 @@ export default function GlyphStudio() {
   const clearLetter = () => setStrokesFor(character, []);
 
   const go = (delta: number) => {
-    setIndex((i) => Math.min(CHARACTERS.length - 1, Math.max(0, i + delta)));
+    setIndex((i) => Math.min(characters.length - 1, Math.max(0, i + delta)));
     setStatus(null);
   };
 
@@ -85,8 +97,10 @@ export default function GlyphStudio() {
       setStatus("canvas not ready");
       return;
     }
+    // Export everything drawn, not just the visible set — otherwise switching
+    // from A–Z to a–z would silently drop the capitals from the font.
     const drawn: DrawnGlyph[] = [];
-    for (const char of CHARACTERS) {
+    for (const char of Object.keys(glyphs).sort()) {
       const strokes = glyphs[char];
       if (!strokes || strokes.length === 0) continue;
       const outlines = strokesToGlyphOutlines(strokes, penWidth, guides);
@@ -98,7 +112,11 @@ export default function GlyphStudio() {
     }
     try {
       const font = buildFont(drawn);
-      downloadFont(font, "scribe-uppercase.otf");
+      const hasUpper = drawn.some((g) => /[A-Z]/.test(g.character));
+      const hasLower = drawn.some((g) => /[a-z]/.test(g.character));
+      const suffix =
+        hasUpper && hasLower ? "" : hasLower ? "-lowercase" : "-uppercase";
+      downloadFont(font, `scribe${suffix}.otf`);
       setStatus(`exported ${drawn.length} glyph${drawn.length === 1 ? "" : "s"}`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "export failed");
@@ -126,7 +144,7 @@ export default function GlyphStudio() {
           </div>
           <button
             onClick={() => go(1)}
-            disabled={index === CHARACTERS.length - 1}
+            disabled={index === characters.length - 1}
             className={button}
             aria-label="next character"
           >
@@ -134,13 +152,34 @@ export default function GlyphStudio() {
           </button>
         </div>
 
+        <div className="flex gap-1">
+          {(Object.keys(CHARACTER_SETS) as CharacterSetId[]).map((id) => (
+            <button
+              key={id}
+              onClick={() => {
+                setSetId(id);
+                setIndex(0);
+                setStatus(null);
+              }}
+              className={
+                id === setId
+                  ? `${chip} bg-zinc-900 text-white`
+                  : `${chip} hover:bg-zinc-100`
+              }
+            >
+              {CHARACTER_SETS[id].label}
+            </button>
+          ))}
+        </div>
+
         <span className={chip}>
-          {index + 1} / {CHARACTERS.length}
+          {index + 1} / {characters.length}
         </span>
         <span className={chip}>
-          drawn {drawnCount} / {CHARACTERS.length}
+          drawn {drawnCount} / {characters.length}
         </span>
         <span className={chip}>strokes {currentStrokes.length}</span>
+        <span className={`${chip} text-zinc-500`}>draw to {targetGuide}</span>
 
         <button
           onClick={undoStroke}
@@ -214,16 +253,22 @@ export default function GlyphStudio() {
       </div>
 
       <footer className="flex flex-wrap gap-1 border-t border-zinc-200 bg-white px-4 py-2">
-        {CHARACTERS.map((c, i) => {
+        {characters.map((c, i) => {
           const done = (glyphs[c]?.length ?? 0) > 0;
+          // Tricky letters get a ring so they're easy to come back and review;
+          // they are where curve fitting is most likely to look wrong.
+          const tricky = TRICKY.includes(c);
           return (
             <button
               key={c}
+              title={tricky ? "tight curves — worth reviewing" : undefined}
               onClick={() => {
                 setIndex(i);
                 setStatus(null);
               }}
               className={`h-7 w-7 rounded text-xs font-mono ${
+                tricky ? "ring-1 ring-amber-400" : ""
+              } ${
                 i === index
                   ? "bg-zinc-900 text-white"
                   : done

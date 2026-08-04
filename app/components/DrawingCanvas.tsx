@@ -66,7 +66,7 @@ export default function DrawingCanvas({
     ctx.lineWidth = 1;
     ctx.setLineDash([6, 6]);
     ctx.strokeStyle = GUIDE_COLOR;
-    for (const y of [g.capY, g.descenderY]) {
+    for (const y of [g.capY, g.xHeightY, g.descenderY]) {
       ctx.beginPath();
       ctx.moveTo(g.left, y);
       ctx.lineTo(g.right, y);
@@ -83,6 +83,7 @@ export default function DrawingCanvas({
     ctx.font = "11px ui-monospace, monospace";
     ctx.fillStyle = BASELINE_COLOR;
     ctx.fillText("cap height", g.left, g.capY - 6);
+    ctx.fillText("x-height", g.left, g.xHeightY - 6);
     ctx.fillText("baseline", g.left, g.baselineY - 6);
     ctx.fillText("descender", g.left, g.descenderY - 6);
   };

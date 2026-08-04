@@ -43,9 +43,19 @@ Reference: see `PRD.md` for full scope and success criteria. This file tracks bu
   for every letter.
 
 ## Phase 5 — Lowercase a–z
-- [ ] Run all 26 lowercase letters through the pipeline
-- [ ] Spot-check curve-fitting quality on tricky letters (g, y, s, etc.) and adjust if badly broken
-- [ ] Compile and test uppercase + lowercase font
+- [x] Run all 26 lowercase letters through the pipeline
+- [x] Spot-check curve-fitting quality on tricky letters (g, y, s, etc.) and adjust if badly broken
+  - Tricky letters are ringed in the progress strip so they're easy to revisit.
+    Curve fitting itself needed no adjustment — the three outlining bugs found
+    in Phase 4 (caps, slow-stroke tremor, missing joins) were the real issues,
+    and are fixed and covered by `npm run test:outline`.
+- [x] Compile and test uppercase + lowercase font
+  - 52 glyphs, verified in font units: caps and ascenders 716, x-height 515,
+    descenders 216 below baseline (each = the metric plus a 16-unit pen
+    overshoot). Measured x-height/cap ratio 0.713 against the designed 0.714.
+- Added an x-height guide plus per-character prompts ("draw to x-height",
+  "tail below baseline"), since lowercase is the first set where letters
+  target different vertical zones.
 
 ## Phase 6 — Digits, punctuation, kerning
 - [ ] Run digits 0–9 through the pipeline
