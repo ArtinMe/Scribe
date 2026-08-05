@@ -176,7 +176,7 @@ export default function GlyphStudio() {
           drawn {drawnCount} / {characters.length}
         </span>
         <span className={chip}>strokes {currentStrokes.length}</span>
-        <span className={`${chip} text-zinc-500`}>draw to {targetGuide}</span>
+        <span className={`${chip} text-zinc-700`}>draw to {targetGuide}</span>
 
         <button
           onClick={undoStroke}

@@ -26,6 +26,10 @@ const FIT_COLOR = "#0b6bcb";
 const INK_COLOR = "#18181b";
 const GUIDE_COLOR = "#d4d4d8";
 const BASELINE_COLOR = "#a1a1aa";
+// Guide labels need to actually be readable, not just present — the line
+// color they used to share is decorative-light on purpose, but text at that
+// contrast against white reads as invisible.
+const LABEL_COLOR = "#3f3f46";
 
 export type DrawingCanvasProps = {
   strokes: Stroke[];
@@ -81,7 +85,7 @@ export default function DrawingCanvas({
     ctx.stroke();
 
     ctx.font = "11px ui-monospace, monospace";
-    ctx.fillStyle = BASELINE_COLOR;
+    ctx.fillStyle = LABEL_COLOR;
     ctx.fillText("cap height", g.left, g.capY - 6);
     ctx.fillText("x-height", g.left, g.xHeightY - 6);
     ctx.fillText("baseline", g.left, g.baselineY - 6);
