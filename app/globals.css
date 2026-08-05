@@ -12,11 +12,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * No dark-mode variant on purpose: the canvas ink, guide lines, and every
+ * chip/button background in this app are hardcoded light colors (bg-white,
+ * bg-zinc-50, border-zinc-200 — none of it uses a `dark:` class). Letting
+ * --foreground flip to near-white on prefers-color-scheme: dark left body
+ * text nearly invisible against those still-white chips. Telling the browser
+ * the page is light-only stops it from darkening form controls to match a
+ * scheme the rest of the UI doesn't follow.
+ */
+:root {
+  color-scheme: light;
 }
 
 body {
